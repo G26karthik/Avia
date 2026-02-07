@@ -4,6 +4,8 @@ Three-bucket risk scoring: Claim Risk, Customer Risk, Pattern Risk.
 Uses trained XGBoost + Isolation Forest models when available, falls back to heuristics.
 """
 
+from __future__ import annotations
+
 import os
 import json
 import warnings
