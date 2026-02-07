@@ -849,7 +849,7 @@ def health():
     return {
         "status": "ok",
         "genai_provider": "gemini",
-        "genai_model": "gemini-2.5-flash",
+        "genai_model": "gemini-2.0-flash",
         "genai_ready": genai_ready,
         "ml_models_loaded": ml_ready,
     }

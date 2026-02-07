@@ -28,6 +28,9 @@ __pycache__/
 *.pyo
 *.egg-info/
 
+# Secrets
+.env
+
 # App data
 avia.db
 uploads/

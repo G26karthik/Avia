@@ -4,7 +4,25 @@
 
 $ErrorActionPreference = "Stop"
 
-$env:GEMINI_API_KEY = "AIzaSyDagJfdsmkQULysVOYncbh49__uaGSwo04"
+# Load API key from .env file (never committed to git)
+$envFile = Join-Path $PSScriptRoot ".env"
+if (Test-Path $envFile) {
+    Get-Content $envFile | ForEach-Object {
+        if ($_ -match '^([^#=]+)=(.*)$') {
+            [System.Environment]::SetEnvironmentVariable($Matches[1].Trim(), $Matches[2].Trim(), 'Process')
+        }
+    }
+}
+
+if (-not $env:GEMINI_API_KEY) {
+    Write-Host ""
+    Write-Host "  ERROR: GEMINI_API_KEY not set." -ForegroundColor Red
+    Write-Host "  Create a .env file in the project root with:" -ForegroundColor Yellow
+    Write-Host "    GEMINI_API_KEY=your_key_here" -ForegroundColor Gray
+    Write-Host "  Get a key at: https://aistudio.google.com/apikey" -ForegroundColor Gray
+    Write-Host ""
+    exit 1
+}
 
 Write-Host ""
 Write-Host "  =============================================" -ForegroundColor Cyan
@@ -12,7 +30,7 @@ Write-Host "         Avia - Starting Up                    " -ForegroundColor Cy
 Write-Host "     Fraud Investigation Platform              " -ForegroundColor Cyan
 Write-Host "  =============================================" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "  GenAI:    Gemini 2.5 Flash (google.genai)" -ForegroundColor Green
+Write-Host "  GenAI:    Gemini 2.0 Flash (google.genai)" -ForegroundColor Green
 Write-Host "  Backend:  http://localhost:8000" -ForegroundColor Yellow
 Write-Host "  Frontend: http://localhost:3000" -ForegroundColor Yellow
 Write-Host "  Login:    jsmith / avia2026" -ForegroundColor Gray

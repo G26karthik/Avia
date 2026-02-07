@@ -827,7 +827,7 @@ def health():
         "python": sys.version,
         "vercel": bool(os.environ.get("VERCEL")),
         "genai_provider": "gemini",
-        "genai_model": "gemini-2.5-flash",
+        "genai_model": "gemini-2.0-flash",
     }
     try:
         if genai_adapter:
