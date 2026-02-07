@@ -9,7 +9,9 @@ import json
 import re
 from typing import Optional
 
-GEMINI_KEY = os.environ.get("GEMINI_API_KEY", "")
+def _get_gemini_key() -> str:
+    """Read GEMINI_API_KEY from environment at call time (not cached at import)."""
+    return os.environ.get("GEMINI_API_KEY", "")
 
 GENAI_ERROR_MSG = (
     "AI analysis is temporarily unavailable. "
@@ -26,12 +28,12 @@ class GenAIUnavailableError(Exception):
 
 def check_available() -> bool:
     """Return True if Gemini is configured (API key present)."""
-    return bool(GEMINI_KEY)
+    return bool(_get_gemini_key())
 
 
 def _call_gemini(prompt: str, system: str = "") -> str:
     from google import genai
-    client = genai.Client(api_key=GEMINI_KEY)
+    client = genai.Client(api_key=_get_gemini_key())
     full_prompt = f"{system}\n\n{prompt}" if system else prompt
     resp = client.models.generate_content(
         model="gemini-2.5-flash",
@@ -42,7 +44,7 @@ def _call_gemini(prompt: str, system: str = "") -> str:
 
 def call_llm(prompt: str, system: str = "") -> str:
     """Call Gemini. Raises GenAIUnavailableError if unavailable or call fails."""
-    if not GEMINI_KEY:
+    if not _get_gemini_key():
         raise GenAIUnavailableError("GEMINI_API_KEY not configured")
     try:
         return _call_gemini(prompt, system)
@@ -156,14 +158,14 @@ def extract_claim_multimodal(file_bytes: bytes, mime_type: str) -> dict:
     PRIMARY extraction: Pass the raw document (image/PDF) directly to Gemini
     for multimodal field extraction. No OCR required.
     """
-    if not GEMINI_KEY:
+    if not _get_gemini_key():
         raise GenAIUnavailableError("GEMINI_API_KEY not configured")
 
     try:
         from google import genai
         from google.genai import types
 
-        client = genai.Client(api_key=GEMINI_KEY)
+        client = genai.Client(api_key=_get_gemini_key())
         prompt = _build_extraction_prompt()
         file_part = types.Part.from_bytes(data=file_bytes, mime_type=mime_type)
 
@@ -264,14 +266,14 @@ def _parse_extraction_response(response: str) -> dict:
 
 def generate_document_insights_multimodal(file_bytes: bytes, mime_type: str, claim_data: dict) -> dict:
     """Analyze document directly via multimodal Gemini for inconsistencies and key values."""
-    if not GEMINI_KEY:
+    if not _get_gemini_key():
         raise GenAIUnavailableError("GEMINI_API_KEY not configured")
 
     try:
         from google import genai
         from google.genai import types
 
-        client = genai.Client(api_key=GEMINI_KEY)
+        client = genai.Client(api_key=_get_gemini_key())
 
         prompt = f"""You are reviewing a document submitted with an insurance claim.
 

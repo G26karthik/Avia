@@ -522,10 +522,10 @@ def analyze_claim(claim_id: str, current_user: dict = Depends(get_current_user))
             top_features=ml_result["top_features"],
             document_insights=doc_insights if doc_insights["flags"] else None,
         )
-    except GenAIUnavailableError:
+    except GenAIUnavailableError as e:
         raise HTTPException(
             status_code=503,
-            detail=genai_adapter.GENAI_ERROR_MSG,
+            detail=str(e),
         )
 
     # 4. GenAI investigator explanation (required — no fallback)
@@ -538,10 +538,10 @@ def analyze_claim(claim_id: str, current_user: dict = Depends(get_current_user))
             risk_level=ml_result["risk_level"],
             top_features=ml_result["top_features"],
         )
-    except GenAIUnavailableError:
+    except GenAIUnavailableError as e:
         raise HTTPException(
             status_code=503,
-            detail=genai_adapter.GENAI_ERROR_MSG,
+            detail=str(e),
         )
 
     # 5. Save to DB

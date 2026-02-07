@@ -693,7 +693,7 @@ function UploadClaimScreen({ user, onDone }) {
           <div className="upload-file-list">
             {files.map((f, i) => (
               <div key={i} className="upload-file-item">
-                <span>📄</span>
+                <span className="file-icon-text">FILE</span>
                 <span className="upload-file-name">{f.name}</span>
                 <span className="upload-file-size">{(f.size / 1024).toFixed(0)} KB</span>
                 <button className="upload-file-remove" onClick={e => { e.stopPropagation(); removeFile(i); }}>×</button>
@@ -805,7 +805,7 @@ function IntakeQualityCheck({ claimId, user }) {
 
       {data.inconsistencies && data.inconsistencies.length > 0 && (
         <div className="intake-inconsistencies">
-          <h4>⚠ Data Inconsistencies</h4>
+          <h4>Data Inconsistencies</h4>
           <ul>{data.inconsistencies.map((inc, i) => <li key={i}>{inc}</li>)}</ul>
         </div>
       )}
@@ -925,16 +925,16 @@ function EscalationPackageModal({ claimId, user, onClose }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>📋 Escalation Package</h2>
+          <h2>Escalation Package</h2>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
 
         <div className="modal-actions">
           <button className="btn-teal" onClick={copyToClipboard} disabled={!data}>
-            📋 Copy to Clipboard
+            Copy to Clipboard
           </button>
           <button className="btn-secondary" onClick={downloadText} disabled={!data}>
-            ⬇ Download JSON
+            Download JSON
           </button>
         </div>
 
@@ -1133,7 +1133,15 @@ function ClaimDetail({ claimId, user, onBack }) {
         headers: { Authorization: `Bearer ${user.token}` },
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || 'Analysis failed');
+      if (!res.ok) {
+        const msg = data.detail || 'Analysis failed';
+        const userMsg = msg.includes('RESOURCE_EXHAUSTED') || msg.includes('quota')
+          ? 'Gemini API quota exceeded. Please wait a moment and try again.'
+          : msg.includes('GEMINI_API_KEY')
+          ? 'Gemini API key is not configured. Please set GEMINI_API_KEY.'
+          : msg;
+        throw new Error(userMsg);
+      }
       if (data.genai_error) {
         setGenaiError(data.genai_error);
         toast.addToast({ type: 'warning', title: 'Partial Analysis', message: 'ML scoring complete but GenAI explanation unavailable.' });
@@ -1199,8 +1207,8 @@ function ClaimDetail({ claimId, user, onBack }) {
   const decisions = claim.decisions || [];
   const hasAnalysis = analysis && analysis.risk_score != null;
 
-  const nextAction = !hasAnalysis ? { text: '⚡ Run AI analysis to generate risk scores', bg: '#e6f5f5', border: '#0d6e6e' }
-    : claim.status === 'pending' ? { text: '⏳ Claim analyzed — awaiting adjuster decision', bg: '#fffbeb', border: '#d97706' }
+  const nextAction = !hasAnalysis ? { text: 'Run AI analysis to generate risk scores', bg: '#e6f5f5', border: '#0d6e6e' }
+    : claim.status === 'pending' ? { text: 'Claim analyzed -- awaiting adjuster decision', bg: '#fffbeb', border: '#d97706' }
     : null;
 
   return (
@@ -1223,7 +1231,7 @@ function ClaimDetail({ claimId, user, onBack }) {
 
       {genaiError && (
         <div className="genai-error-banner genai-error-warn">
-          <span className="genai-error-icon">⚠</span>
+          <span className="genai-error-icon">!</span>
           <span><strong>GenAI Note:</strong> {genaiError}</span>
           <button className="genai-error-dismiss" onClick={() => setGenaiError(null)}>✕</button>
         </div>
@@ -1233,7 +1241,7 @@ function ClaimDetail({ claimId, user, onBack }) {
       <div className="tabs">
         {['overview', 'risk', 'trace', 'documents', 'actions', 'escalation'].map(t => (
           <button key={t} className={`tab${tab === t ? ' active' : ''}`} onClick={() => setTab(t)}>
-            {t === 'overview' ? '📋 Overview' : t === 'risk' ? '📊 Risk' : t === 'trace' ? '🔍 Trace' : t === 'documents' ? '📄 Documents' : t === 'actions' ? '⚖ Actions' : '📦 Escalation'}
+            {t === 'overview' ? 'Overview' : t === 'risk' ? 'Risk Analysis' : t === 'trace' ? 'Reasoning Trace' : t === 'documents' ? 'Documents' : t === 'actions' ? 'Actions' : 'Escalation'}
           </button>
         ))}
       </div>
@@ -1258,13 +1266,13 @@ function ClaimDetail({ claimId, user, onBack }) {
               <h3>Ready for AI Analysis</h3>
               <p>Run the AI engine to generate risk scores, reasoning trace, and fraud indicators for this claim.</p>
               <button className="btn-primary" onClick={handleAnalyze} disabled={analyzing}>
-                {analyzing ? 'Analyzing…' : '⚡ Run AI Analysis'}
+                {analyzing ? 'Analyzing...' : 'Run AI Analysis'}
               </button>
             </div>
           )}
           {hasAnalysis && analysis.explanation && (
             <div className="explanation-card">
-              <h3>🤖 AI Explanation</h3>
+              <h3>AI Explanation</h3>
               <p>{analysis.explanation}</p>
             </div>
           )}
@@ -1316,7 +1324,7 @@ function ClaimDetail({ claimId, user, onBack }) {
               <h3>No Risk Data Yet</h3>
               <p>Run AI analysis to generate risk scoring breakdown.</p>
               <button className="btn-primary" onClick={handleAnalyze} disabled={analyzing}>
-                {analyzing ? 'Analyzing…' : '⚡ Run AI Analysis'}
+                {analyzing ? 'Analyzing...' : 'Run AI Analysis'}
               </button>
             </div>
           )}
@@ -1344,7 +1352,7 @@ function ClaimDetail({ claimId, user, onBack }) {
               <h3>No Trace Available</h3>
               <p>Run AI analysis to generate the reasoning trace.</p>
               <button className="btn-primary" onClick={handleAnalyze} disabled={analyzing}>
-                {analyzing ? 'Analyzing…' : '⚡ Run AI Analysis'}
+                {analyzing ? 'Analyzing...' : 'Run AI Analysis'}
               </button>
             </div>
           )}
@@ -1375,7 +1383,7 @@ function ClaimDetail({ claimId, user, onBack }) {
         <div>
           {claim.source === 'uploaded' && (
             <div className="source-info-banner">
-              <strong>📎 Source:</strong> This claim was created from uploaded documents via OCR extraction.
+              <strong>Source:</strong> This claim was created from uploaded documents via OCR extraction.
             </div>
           )}
           <div className="upload-section">
@@ -1418,9 +1426,9 @@ function ClaimDetail({ claimId, user, onBack }) {
           <div className="decision-form">
             <textarea rows={3} placeholder="Add notes about your decision rationale…" value={notes} onChange={e => setNotes(e.target.value)} />
             <div className="decision-buttons">
-              <button className="btn-escalate" onClick={() => handleDecision('escalated')} disabled={deciding}>🚨 Escalate</button>
-              <button className="btn-genuine" onClick={() => handleDecision('approved')} disabled={deciding}>✅ Approve</button>
-              <button className="btn-defer" onClick={() => handleDecision('deferred')} disabled={deciding}>⏸ Defer</button>
+              <button className="btn-escalate" onClick={() => handleDecision('escalated')} disabled={deciding}>Escalate</button>
+              <button className="btn-genuine" onClick={() => handleDecision('approved')} disabled={deciding}>Approve</button>
+              <button className="btn-defer" onClick={() => handleDecision('deferred')} disabled={deciding}>Defer</button>
             </div>
           </div>
           {decisions.length > 0 && (
@@ -1442,7 +1450,7 @@ function ClaimDetail({ claimId, user, onBack }) {
       {tab === 'escalation' && (
         <div>
           <div className="analyze-prompt">
-            <h3>📦 Escalation Package</h3>
+            <h3>Escalation Package</h3>
             <p>Generate a comprehensive investigation package with all claim data, risk assessment, reasoning trace, and adjuster notes — ready for SIU handoff.</p>
             <button className="btn-primary" onClick={() => setEscalationOpen(true)}>Generate Escalation Package</button>
           </div>
