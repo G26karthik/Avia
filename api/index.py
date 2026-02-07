@@ -7,6 +7,7 @@ Vercel routes /api/* requests here via vercel.json rewrites.
 import os
 import sys
 import json
+import traceback
 import warnings
 from datetime import datetime
 from typing import Optional, List
@@ -16,14 +17,29 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Header, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, validator
 
-import _db as db
-import _ml_engine as ml_engine
-import _genai_adapter as genai_adapter
-from _genai_adapter import GenAIUnavailableError
-
 warnings.filterwarnings("ignore")
+
+# ---------------------------------------------------------------------------
+# SAFE IMPORTS — wrapped to prevent cold-start crashes
+# ---------------------------------------------------------------------------
+_startup_error = None
+try:
+    import _db as db
+    import _ml_engine as ml_engine
+    import _genai_adapter as genai_adapter
+    from _genai_adapter import GenAIUnavailableError
+except Exception as e:
+    _startup_error = f"{type(e).__name__}: {e}"
+    print(f"[AVIA] Import error: {_startup_error}", file=sys.stderr)
+    traceback.print_exc(file=sys.stderr)
+    db = None
+    ml_engine = None
+    genai_adapter = None
+    class GenAIUnavailableError(Exception):
+        pass
 
 # ---------------------------------------------------------------------------
 # CONFIG
@@ -40,8 +56,32 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize database on cold start
-db.init_db()
+# ---------------------------------------------------------------------------
+# LAZY DB INIT — avoids cold-start crash if DB/CSV has issues
+# ---------------------------------------------------------------------------
+_db_ready = False
+
+
+def _ensure_db():
+    """Initialize DB on first request (not module level)."""
+    global _db_ready
+    if _db_ready:
+        return
+    if _startup_error:
+        raise HTTPException(status_code=500, detail=f"Startup error: {_startup_error}")
+    if not db:
+        raise HTTPException(status_code=500, detail="Database module not loaded")
+    try:
+        db.init_db()
+        _db_ready = True
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"DB init failed: {e}")
+
+
+# Catch-all: always return JSON, never raw text
+@app.exception_handler(Exception)
+async def _global_exc(request: Request, exc: Exception):
+    return JSONResponse(status_code=500, content={"error": str(exc), "type": type(exc).__name__})
 
 
 # ---------------------------------------------------------------------------
@@ -94,6 +134,7 @@ class DecisionRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 def get_current_user(authorization: Optional[str] = Header(None)):
+    _ensure_db()
     if not authorization:
         raise HTTPException(status_code=401, detail="Authentication required")
     parts = authorization.split(" ", 1)
@@ -112,6 +153,7 @@ def get_current_user(authorization: Optional[str] = Header(None)):
 
 @app.post("/api/auth/login")
 def login(req: LoginRequest):
+    _ensure_db()
     user = db.authenticate_by_username(req.username, req.password)
     if not user:
         raise HTTPException(status_code=401, detail="Invalid username or password")
@@ -542,15 +584,32 @@ def decide_claim(claim_id: str, req: DecisionRequest,
 
 @app.get("/api/health")
 def health():
-    genai_ready = genai_adapter.check_available()
-    ml_ready = ml_engine._load_models()
-    return {
-        "status": "ok",
+    """Diagnostic endpoint — works even if DB or imports failed."""
+    info = {
+        "status": "ok" if not _startup_error else "degraded",
+        "startup_error": _startup_error,
+        "db_ready": _db_ready,
+        "python": sys.version,
+        "vercel": bool(os.environ.get("VERCEL")),
         "genai_provider": "gemini",
         "genai_model": "gemini-2.5-flash",
-        "genai_ready": genai_ready,
-        "ml_models_loaded": ml_ready,
     }
+    try:
+        if genai_adapter:
+            info["genai_ready"] = genai_adapter.check_available()
+        else:
+            info["genai_ready"] = False
+    except Exception as e:
+        info["genai_ready"] = False
+        info["genai_error"] = str(e)
+    try:
+        if ml_engine:
+            info["ml_models_loaded"] = ml_engine._load_models()
+        else:
+            info["ml_models_loaded"] = False
+    except Exception as e:
+        info["ml_models_loaded"] = False
+    return info
 
 
 # ---------------------------------------------------------------------------
