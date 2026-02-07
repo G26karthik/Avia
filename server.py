@@ -1,18 +1,18 @@
 """
-Avia — FastAPI Backend (v2)
+Avia â€” FastAPI Backend (v2)
 Investigator-first insurance fraud detection with GenAI explainability.
 
 Endpoints:
-  POST /api/auth/login           → authenticate user (org resolved from account)
-  GET  /api/claims               → list claims for org
-  GET  /api/claims/{id}          → get single claim with full detail
-  POST /api/claims               → create a new claim
-  POST /api/claims/{id}/documents → upload documents to a claim
-  POST /api/claims/{id}/analyze  → run ML + GenAI analysis
-  POST /api/claims/{id}/decide   → investigator records decision
-  GET  /api/claims/{id}/documents → get documents for a claim
-  GET  /api/health               → health check
-  POST /api/seed                 → seed demo claims from CSV
+  POST /api/auth/login           â†’ authenticate user (org resolved from account)
+  GET  /api/claims               â†’ list claims for org
+  GET  /api/claims/{id}          â†’ get single claim with full detail
+  POST /api/claims               â†’ create a new claim
+  POST /api/claims/{id}/documents â†’ upload documents to a claim
+  POST /api/claims/{id}/analyze  â†’ run ML + GenAI analysis
+  POST /api/claims/{id}/decide   â†’ investigator records decision
+  GET  /api/claims/{id}/documents â†’ get documents for a claim
+  GET  /api/health               â†’ health check
+  POST /api/seed                 â†’ seed demo claims from CSV
 """
 
 import os
@@ -31,7 +31,7 @@ import db
 import ml_engine
 import genai_adapter
 from genai_adapter import GenAIUnavailableError
-# ocr_engine is no longer used — multimodal GenAI is the primary extraction method
+# ocr_engine is no longer used â€” multimodal GenAI is the primary extraction method
 
 warnings.filterwarnings("ignore")
 
@@ -43,7 +43,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 CSV_PATH = os.environ.get("AVIA_CSV_PATH", "insurance_fraud.csv")
 
-app = FastAPI(title="Avia — Fraud Investigation Platform", version="2.0.0")
+app = FastAPI(title="Avia â€” Fraud Investigation Platform", version="2.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -253,7 +253,7 @@ def create_claim(req: CreateClaimRequest, current_user: dict = Depends(get_curre
 
 
 # ---------------------------------------------------------------------------
-# UPLOAD → AUTO-CREATE CLAIM
+# UPLOAD â†’ AUTO-CREATE CLAIM
 # ---------------------------------------------------------------------------
 
 # Mime-type mapping for multimodal GenAI
@@ -277,7 +277,7 @@ async def upload_and_create_claim(
     
     - Uses multimodal Gemini as PRIMARY extraction (no OCR).
     - Validates all required fields are present.
-    - Does NOT run risk analysis — user must click 'Analyze Claim'.
+    - Does NOT run risk analysis â€” user must click 'Analyze Claim'.
     """
     org_id = current_user["org_id"]
 
@@ -306,7 +306,7 @@ async def upload_and_create_claim(
             raise HTTPException(status_code=400, detail=f"File '{safe_filename}' is empty")
         file_contents.append((safe_filename, content, ext))
 
-    # --- Multimodal GenAI extraction (PRIMARY — no OCR) ---
+    # --- Multimodal GenAI extraction (PRIMARY â€” no OCR) ---
     first_name, first_content, first_ext = file_contents[0]
     mime_type = _EXT_TO_MIME.get(first_ext, "application/octet-stream")
 
@@ -328,7 +328,7 @@ async def upload_and_create_claim(
             detail="Unable to extract required claim details from the document."
         )
 
-    # Build claim_data — only use values actually extracted (no defaults)
+    # Build claim_data â€” only use values actually extracted (no defaults)
     claim_data = {}
     field_map = [
         "policy_number", "incident_type", "incident_severity", "total_claim_amount",
@@ -345,7 +345,7 @@ async def upload_and_create_claim(
 
     policy_num = claim_data["policy_number"]
 
-    # Create claim (no risk analysis yet — user must click "Analyze Claim")
+    # Create claim (no risk analysis yet â€” user must click "Analyze Claim")
     claim_id = db.create_claim(org_id, policy_num, claim_data, source="uploaded")
 
     # Save all files and attach as documents
@@ -489,7 +489,7 @@ def analyze_claim(claim_id: str, current_user: dict = Depends(get_current_user))
     if not is_dataset_claim and len(docs) == 0:
         raise HTTPException(status_code=400, detail="At least one document must be uploaded before analysis")
 
-    # GenAI is a required dependency — block analysis if unavailable
+    # GenAI is a required dependency â€” block analysis if unavailable
     if not genai_adapter.check_available():
         raise HTTPException(
             status_code=503,
@@ -510,7 +510,7 @@ def analyze_claim(claim_id: str, current_user: dict = Depends(get_current_user))
             flags = doc["ai_flags"] if isinstance(doc["ai_flags"], list) else []
             doc_insights["flags"].extend(flags)
 
-    # 3. GenAI decision trace (required — no fallback)
+    # 3. GenAI decision trace (required â€” no fallback)
     try:
         decision_trace = genai_adapter.generate_decision_trace(
             claim_data=cd,
@@ -528,7 +528,7 @@ def analyze_claim(claim_id: str, current_user: dict = Depends(get_current_user))
             detail=str(e),
         )
 
-    # 4. GenAI investigator explanation (required — no fallback)
+    # 4. GenAI investigator explanation (required â€” no fallback)
     try:
         explanation = genai_adapter.generate_explanation(
             claim_data=cd,
@@ -760,7 +760,7 @@ def escalation_package(claim_id: str, current_user: dict = Depends(get_current_u
 
     lines = []
     lines.append("=" * 60)
-    lines.append("AVIA — ESCALATION PACKAGE")
+    lines.append("AVIA â€” ESCALATION PACKAGE")
     lines.append("=" * 60)
     lines.append("")
     lines.append("CLAIM SUMMARY")
@@ -849,7 +849,7 @@ def health():
     return {
         "status": "ok",
         "genai_provider": "gemini",
-        "genai_model": "gemini-2.0-flash",
+        "genai_model": "gemini-2.5-flash",
         "genai_ready": genai_ready,
         "ml_models_loaded": ml_ready,
     }
@@ -864,7 +864,7 @@ def _next_action(risk_level: str) -> str:
         return "Escalation Recommended"
     elif risk_level == "Medium":
         return "Further Review Needed"
-    return "Routine — Proceed to Close"
+    return "Routine â€” Proceed to Close"
 
 
 # ---------------------------------------------------------------------------

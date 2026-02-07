@@ -1,5 +1,5 @@
 """
-Avia â€” GenAI Adapter
+Avia Ã¢â‚¬â€ GenAI Adapter
 Gemini-powered LLM interface. GenAI is a required dependency.
 No mock mode, no fallbacks. If Gemini is unavailable, operations fail explicitly.
 
@@ -39,7 +39,7 @@ def _call_gemini(prompt: str, system: str = "") -> str:
     client = genai.Client(api_key=_get_gemini_key())
     full_prompt = f"{system}\n\n{prompt}" if system else prompt
     resp = client.models.generate_content(
-        model="gemini-2.0-flash",
+        model="gemini-2.5-flash",
         contents=full_prompt,
     )
     return resp.text.strip()
@@ -191,7 +191,7 @@ def extract_claim_multimodal(file_bytes: bytes, mime_type: str) -> dict:
         file_part = types.Part.from_bytes(data=file_bytes, mime_type=mime_type)
 
         resp = client.models.generate_content(
-            model="gemini-2.0-flash",
+            model="gemini-2.5-flash",
             contents=[file_part, prompt],
         )
         return _parse_extraction_response(resp.text.strip())
@@ -206,7 +206,7 @@ def _build_extraction_prompt() -> str:
     """Shared prompt for claim field extraction with strict insurance rules."""
     return """You are an expert insurance document analyst. You are reviewing an insurance claim document (could be a form, letter, estimate, photo of a document, or police report).
 
-STRICT EXTRACTION RULES â€” follow these exactly:
+STRICT EXTRACTION RULES Ã¢â‚¬â€ follow these exactly:
 
 1. EXPLICIT EXTRACTION ONLY: Extract a field ONLY if its value is explicitly stated in the document. Never guess, infer, or assume.
 
@@ -215,14 +215,14 @@ STRICT EXTRACTION RULES â€” follow these exactly:
    - If either date is missing, set "customer_tenure_months" to null.
 
 3. VEHICLES INVOLVED:
-   - If the number of vehicles is explicitly stated â†’ extract the number.
-   - If the incident clearly describes a single-vehicle event (e.g. hit a divider, skid, rollover, drove into ditch, single-car accident) â†’ set to 1.
-   - If ambiguous or not mentioned â†’ set to null.
+   - If the number of vehicles is explicitly stated Ã¢â€ â€™ extract the number.
+   - If the incident clearly describes a single-vehicle event (e.g. hit a divider, skid, rollover, drove into ditch, single-car accident) Ã¢â€ â€™ set to 1.
+   - If ambiguous or not mentioned Ã¢â€ â€™ set to null.
 
 4. WITNESSES:
-   - If witnesses are mentioned with a count â†’ extract that count.
-   - If the document explicitly says "no witnesses" or "none" â†’ set to 0.
-   - If witnesses are not mentioned at all â†’ set to null.
+   - If witnesses are mentioned with a count Ã¢â€ â€™ extract that count.
+   - If the document explicitly says "no witnesses" or "none" Ã¢â€ â€™ set to 0.
+   - If witnesses are not mentioned at all Ã¢â€ â€™ set to null.
 
 5. POLICY STATE / REGION:
    - Extract ONLY if explicitly present in the document.
@@ -234,23 +234,23 @@ STRICT EXTRACTION RULES â€” follow these exactly:
 
 Return ONLY a JSON object with these keys:
 - "policy_number": string or null
-- "incident_type": string or null â€” e.g. "Multi-vehicle Collision", "Single Vehicle Collision", "Vehicle Theft", "Parked Car", "Property Damage", "Fire", "Flood"
-- "incident_severity": string or null â€” e.g. "Minor Damage", "Major Damage", "Total Loss", "Trivial Damage"
-- "total_claim_amount": number or null â€” the dollar amount being claimed
+- "incident_type": string or null Ã¢â‚¬â€ e.g. "Multi-vehicle Collision", "Single Vehicle Collision", "Vehicle Theft", "Parked Car", "Property Damage", "Fire", "Flood"
+- "incident_severity": string or null Ã¢â‚¬â€ e.g. "Minor Damage", "Major Damage", "Total Loss", "Trivial Damage"
+- "total_claim_amount": number or null Ã¢â‚¬â€ the dollar amount being claimed
 - "incident_date": string in YYYY-MM-DD format or null
-- "policy_start_date": string in YYYY-MM-DD format or null â€” only if explicitly stated
-- "customer_tenure_months": number or null â€” calculated only if both dates are present
-- "bodily_injuries": number or null â€” only if explicitly mentioned
-- "witnesses": number or null â€” 0 if explicitly "no witnesses", null if not mentioned
+- "policy_start_date": string in YYYY-MM-DD format or null Ã¢â‚¬â€ only if explicitly stated
+- "customer_tenure_months": number or null Ã¢â‚¬â€ calculated only if both dates are present
+- "bodily_injuries": number or null Ã¢â‚¬â€ only if explicitly mentioned
+- "witnesses": number or null Ã¢â‚¬â€ 0 if explicitly "no witnesses", null if not mentioned
 - "police_report_available": "YES" or "NO" or null
 - "property_damage": "YES" or "NO" or null
 - "authorities_contacted": string or null
-- "number_of_vehicles_involved": number or null â€” see rule 3 above
-- "policy_state": string or null â€” only if explicitly stated
-- "vehicle_make": string or null â€” only if explicitly stated
-- "vehicle_model": string or null â€” only if explicitly stated
-- "vehicle_year": string or null â€” only if explicitly stated
-- "vehicle_registration": string or null â€” only if explicitly stated
+- "number_of_vehicles_involved": number or null Ã¢â‚¬â€ see rule 3 above
+- "policy_state": string or null Ã¢â‚¬â€ only if explicitly stated
+- "vehicle_make": string or null Ã¢â‚¬â€ only if explicitly stated
+- "vehicle_model": string or null Ã¢â‚¬â€ only if explicitly stated
+- "vehicle_year": string or null Ã¢â‚¬â€ only if explicitly stated
+- "vehicle_registration": string or null Ã¢â‚¬â€ only if explicitly stated
 - "summary": a 1-sentence factual summary of the claim
 
 Return ONLY the JSON object, no other text."""
@@ -278,7 +278,7 @@ def _parse_extraction_response(response: str) -> dict:
             return data
     except Exception:
         pass
-    # Could not parse â€” return all None so validation catches it
+    # Could not parse Ã¢â‚¬â€ return all None so validation catches it
     return {
         "policy_number": None,
         "incident_type": None,
@@ -314,7 +314,7 @@ Known claim details:
 Analyze this document and return a JSON object with:
 1. "summary": A 2-sentence summary of what this document contains.
 2. "extracted_values": Key values found (amounts, dates, names) as a dict. Only include values explicitly present.
-3. "flags": An array of concerns or inconsistencies (empty array if none). Be precise â€” only flag real problems.
+3. "flags": An array of concerns or inconsistencies (empty array if none). Be precise Ã¢â‚¬â€ only flag real problems.
 4. "risk_hints": An array of risk signals from this document (empty array if none).
 
 Return ONLY the JSON object, no other text."""
@@ -322,7 +322,7 @@ Return ONLY the JSON object, no other text."""
         file_part = types.Part.from_bytes(data=file_bytes, mime_type=mime_type)
 
         resp = client.models.generate_content(
-            model="gemini-2.0-flash",
+            model="gemini-2.5-flash",
             contents=[file_part, prompt],
         )
         response = resp.text.strip()

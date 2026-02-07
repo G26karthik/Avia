@@ -1,5 +1,5 @@
 """
-Avia — Vercel Serverless API
+Avia â€” Vercel Serverless API
 All backend routes handled by a single FastAPI application.
 Vercel routes /api/* requests here via vercel.json rewrites.
 """
@@ -23,7 +23,7 @@ from pydantic import BaseModel, validator
 warnings.filterwarnings("ignore")
 
 # ---------------------------------------------------------------------------
-# SAFE IMPORTS — wrapped to prevent cold-start crashes
+# SAFE IMPORTS â€” wrapped to prevent cold-start crashes
 # ---------------------------------------------------------------------------
 _startup_error = None
 try:
@@ -47,7 +47,7 @@ except Exception as e:
 UPLOAD_DIR = "/tmp/avia_uploads" if os.environ.get("VERCEL") else "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-app = FastAPI(title="Avia — Fraud Investigation Platform", version="3.0.0")
+app = FastAPI(title="Avia â€” Fraud Investigation Platform", version="3.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -57,7 +57,7 @@ app.add_middleware(
 )
 
 # ---------------------------------------------------------------------------
-# LAZY DB INIT — avoids cold-start crash if DB/CSV has issues
+# LAZY DB INIT â€” avoids cold-start crash if DB/CSV has issues
 # ---------------------------------------------------------------------------
 _db_ready = False
 
@@ -273,7 +273,7 @@ def create_claim(req: CreateClaimRequest, current_user: dict = Depends(get_curre
 
 
 # ---------------------------------------------------------------------------
-# UPLOAD → AUTO-CREATE CLAIM
+# UPLOAD â†’ AUTO-CREATE CLAIM
 # ---------------------------------------------------------------------------
 
 _EXT_TO_MIME = {
@@ -744,7 +744,7 @@ def escalation_package(claim_id: str, current_user: dict = Depends(get_current_u
 
     lines = []
     lines.append("=" * 60)
-    lines.append("AVIA — ESCALATION PACKAGE")
+    lines.append("AVIA â€” ESCALATION PACKAGE")
     lines.append("=" * 60)
     lines.append("")
     lines.append("CLAIM SUMMARY")
@@ -819,7 +819,7 @@ def escalation_package(claim_id: str, current_user: dict = Depends(get_current_u
 
 @app.get("/api/health")
 def health():
-    """Diagnostic endpoint — works even if DB or imports failed."""
+    """Diagnostic endpoint â€” works even if DB or imports failed."""
     info = {
         "status": "ok" if not _startup_error else "degraded",
         "startup_error": _startup_error,
@@ -827,7 +827,7 @@ def health():
         "python": sys.version,
         "vercel": bool(os.environ.get("VERCEL")),
         "genai_provider": "gemini",
-        "genai_model": "gemini-2.0-flash",
+        "genai_model": "gemini-2.5-flash",
     }
     try:
         if genai_adapter:
@@ -856,4 +856,4 @@ def _next_action(risk_level: str) -> str:
         return "Escalation Recommended"
     elif risk_level == "Medium":
         return "Further Review Needed"
-    return "Routine — Proceed to Close"
+    return "Routine â€” Proceed to Close"
