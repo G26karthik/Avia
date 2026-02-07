@@ -453,101 +453,156 @@ function ClaimsList({ user, onSelect, onUpload }) {
   if (loading) return <div className="loading-screen"><div className="spinner" /><span>Loading claims…</span></div>;
 
   return (
-    <div>
+    <div className="dashboard-page">
+      {/* Dashboard Header */}
+      <div className="dashboard-header">
+        <div className="dashboard-header-left">
+          <h1 className="dashboard-title">Claims Dashboard</h1>
+          <p className="dashboard-subtitle">Manage, investigate, and adjudicate insurance claims across your portfolio</p>
+        </div>
+        <button className="btn-primary btn-upload-claim" onClick={onUpload}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Upload New Claim
+        </button>
+      </div>
+
       {/* Stats Bar */}
       <div className="stats-bar">
-        <div className="stat-card" onClick={() => setFilter('all')}>
-          <div className="stat-icon-wrap">📊</div>
-          <div className="stat-number">{stats.total}</div>
-          <div className="stat-label">Total Claims</div>
+        <div className={`stat-card${filter === 'all' ? ' stat-active' : ''}`} onClick={() => setFilter('all')}>
+          <div className="stat-card-inner">
+            <div className="stat-icon-wrap stat-icon-total">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+            </div>
+            <div className="stat-text">
+              <div className="stat-number">{stats.total}</div>
+              <div className="stat-label">Total Claims</div>
+            </div>
+          </div>
         </div>
-        <div className={`stat-card stat-high`} onClick={() => setFilter('high')}>
-          <div className="stat-icon-wrap">🔴</div>
-          <div className="stat-number">{stats.high}</div>
-          <div className="stat-label">High Risk</div>
+        <div className={`stat-card stat-high${filter === 'high' ? ' stat-active' : ''}`} onClick={() => setFilter('high')}>
+          <div className="stat-card-inner">
+            <div className="stat-icon-wrap stat-icon-high">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </div>
+            <div className="stat-text">
+              <div className="stat-number">{stats.high}</div>
+              <div className="stat-label">High Risk</div>
+            </div>
+          </div>
         </div>
-        <div className={`stat-card stat-medium`} onClick={() => setFilter('medium')}>
-          <div className="stat-icon-wrap">🟡</div>
-          <div className="stat-number">{stats.medium}</div>
-          <div className="stat-label">Medium Risk</div>
+        <div className={`stat-card stat-medium${filter === 'medium' ? ' stat-active' : ''}`} onClick={() => setFilter('medium')}>
+          <div className="stat-card-inner">
+            <div className="stat-icon-wrap stat-icon-medium">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            </div>
+            <div className="stat-text">
+              <div className="stat-number">{stats.medium}</div>
+              <div className="stat-label">Medium Risk</div>
+            </div>
+          </div>
         </div>
-        <div className={`stat-card stat-low`} onClick={() => setFilter('low')}>
-          <div className="stat-icon-wrap">🟢</div>
-          <div className="stat-number">{stats.low}</div>
-          <div className="stat-label">Low Risk</div>
+        <div className={`stat-card stat-low${filter === 'low' ? ' stat-active' : ''}`} onClick={() => setFilter('low')}>
+          <div className="stat-card-inner">
+            <div className="stat-icon-wrap stat-icon-low">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            </div>
+            <div className="stat-text">
+              <div className="stat-number">{stats.low}</div>
+              <div className="stat-label">Low Risk</div>
+            </div>
+          </div>
         </div>
-        <div className={`stat-card stat-pending`} onClick={() => setFilter('pending')}>
-          <div className="stat-icon-wrap">⏳</div>
-          <div className="stat-number">{stats.pending}</div>
-          <div className="stat-label">Pending</div>
+        <div className={`stat-card stat-pending${filter === 'pending' ? ' stat-active' : ''}`} onClick={() => setFilter('pending')}>
+          <div className="stat-card-inner">
+            <div className="stat-icon-wrap stat-icon-pending">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </div>
+            <div className="stat-text">
+              <div className="stat-number">{stats.pending}</div>
+              <div className="stat-label">Pending Review</div>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Search & Filters */}
-      <div className="search-filter-row">
+      <div className="search-filter-bar">
         <div className="search-input-wrap">
           <span className="search-icon">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           </span>
-          <input className="search-input" placeholder="Search by Claim ID, policy, type…" value={search} onChange={e => setSearch(e.target.value)} />
+          <input className="search-input" placeholder="Search by claim ID, policy number, or incident type…" value={search} onChange={e => setSearch(e.target.value)} />
         </div>
-        <button className="btn-primary btn-upload-claim" onClick={onUpload}>
-          + Upload Claim
-        </button>
-      </div>
-
-      <div className="filter-pills">
-        {[
-          { key: 'all', label: 'All Claims' },
-          { key: 'high', label: 'High Risk' },
-          { key: 'medium', label: 'Medium Risk' },
-          { key: 'low', label: 'Low Risk' },
-          { key: 'pending', label: 'Pending' },
-        ].map(f => (
-          <button key={f.key} className={`pill${filter === f.key ? ' active' : ''}`} onClick={() => setFilter(f.key)}>
-            {f.label}
-          </button>
-        ))}
+        <div className="filter-pills">
+          {[
+            { key: 'all', label: 'All' },
+            { key: 'high', label: 'High Risk' },
+            { key: 'medium', label: 'Medium' },
+            { key: 'low', label: 'Low Risk' },
+            { key: 'pending', label: 'Pending' },
+          ].map(f => (
+            <button key={f.key} className={`pill${filter === f.key ? ' active' : ''}`} onClick={() => setFilter(f.key)}>
+              {f.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Claims Table */}
-      <div className="claims-table-wrap" style={{ marginTop: 16 }}>
+      <div className="claims-table-wrap">
+        <div className="table-title-row">
+          <span className="table-title">Claims Queue</span>
+          <span className="table-count">{filtered.length} of {claims.length} claims</span>
+        </div>
         <table className="claims-table">
           <thead>
             <tr>
               <th>Claim ID</th>
               <th>Source</th>
-              <th>Policy</th>
-              <th>Type</th>
+              <th>Policy No.</th>
+              <th>Incident Type</th>
               <th>Amount</th>
               <th>Status</th>
-              <th>Risk</th>
+              <th>Risk Level</th>
               <th>Score</th>
               <th>Date</th>
-              <th>Next Action</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
-              <tr><td colSpan={10} className="empty-state">No claims match your search criteria</td></tr>
+              <tr><td colSpan={10} className="empty-state">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" strokeWidth="1.5" style={{marginBottom:8}}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <div>No claims match your filter criteria</div>
+              </td></tr>
             ) : filtered.map(c => (
               <tr key={c.claim_id} className="claim-row" onClick={() => onSelect(c.claim_id)}>
-                <td className="mono">{(c.claim_id || '').slice(0, 12)}</td>
+                <td>
+                  <span className="claim-id-cell">{c.claim_id || '—'}</span>
+                </td>
                 <td>{sourceBadge(c.source)}</td>
-                <td className="mono">{displayValue(c.policy_number, '—')}</td>
-                <td>{displayValue(c.incident_type)}</td>
-                <td className="amount">{formatCurrency(c.claim_amount)}</td>
+                <td><span className="policy-cell">{displayValue(c.policy_number, '—')}</span></td>
+                <td><span className="type-cell">{displayValue(c.incident_type)}</span></td>
+                <td><span className="amount-cell">{formatCurrency(c.claim_amount)}</span></td>
                 <td>{statusBadge(c.status)}</td>
                 <td>
                   <span className="risk-pill" style={{ background: riskBg(c.risk_score), color: riskColor(c.risk_score) }}>
-                    {c.risk_score != null ? (c.risk_score >= 80 ? 'High' : c.risk_score >= 60 ? 'Med' : 'Low') : '—'}
+                    <span className="risk-dot" style={{ background: riskColor(c.risk_score) }}></span>
+                    {c.risk_score != null ? (c.risk_score >= 80 ? 'High' : c.risk_score >= 60 ? 'Medium' : 'Low') : 'N/A'}
                   </span>
                 </td>
-                <td className="score-cell" style={{ color: riskColor(c.risk_score), fontWeight: 700 }}>
-                  {c.risk_score != null ? c.risk_score : '—'}
+                <td>
+                  <span className="score-cell" style={{ color: riskColor(c.risk_score) }}>
+                    {c.risk_score != null ? c.risk_score : '—'}
+                  </span>
                 </td>
-                <td className="mono">{displayValue(c.incident_date)}</td>
-                <td><span className="next-action">{c.risk_score == null ? 'Analyze' : c.status === 'pending' ? 'Review' : 'View'}</span></td>
+                <td><span className="date-cell">{displayValue(c.incident_date)}</span></td>
+                <td>
+                  <span className={`action-btn ${c.risk_score == null ? 'action-analyze' : c.status === 'pending' ? 'action-review' : 'action-view'}`}>
+                    {c.risk_score == null ? 'Analyze' : c.status === 'pending' ? 'Review' : 'View'}
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                  </span>
+                </td>
               </tr>
             ))}
           </tbody>
