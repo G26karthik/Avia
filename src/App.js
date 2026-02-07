@@ -419,7 +419,13 @@ function ClaimsList({ user, onSelect, onUpload }) {
       const res = await fetch(`${API}/claims`, { headers: { Authorization: `Bearer ${user.token}` } });
       if (!res.ok) throw new Error('Failed to fetch claims');
       const data = await res.json();
-      setClaims(data.claims || []);
+      setClaims((data.claims || []).map(c => ({
+        ...c,
+        claim_id: c.id,
+        risk_score: c.overall_risk_score,
+        claim_amount: c.total_claim_amount,
+        incident_date: c.created_at ? c.created_at.split('T')[0] : null,
+      })));
     } catch (err) {
       toast.addToast({ type: 'error', title: 'Error', message: err.message });
     } finally {
@@ -729,8 +735,22 @@ function IntakeQualityCheck({ claimId, user }) {
           headers: { Authorization: `Bearer ${user.token}` },
         });
         if (!res.ok) throw new Error('Failed to fetch intake check');
-        const d = await res.json();
-        setData(d);
+        const raw = await res.json();
+        const reqPresent = (raw.required?.present || []).map(f => ({ field_name: f.label || f.field, present: true }));
+        const reqMissing = (raw.required?.missing || []).map(f => ({ field_name: f.label || f.field, present: false }));
+        const impPresent = (raw.important?.present || []).map(f => ({ field_name: f.label || f.field, present: true }));
+        const impMissing = (raw.important?.missing || []).map(f => ({ field_name: f.label || f.field, present: false }));
+        setData({
+          ...raw,
+          ready_for_analysis: raw.status === 'READY',
+          required_fields: [...reqPresent, ...reqMissing],
+          required_fields_present: reqPresent.length,
+          total_required_fields: reqPresent.length + reqMissing.length,
+          important_fields: [...impPresent, ...impMissing],
+          important_fields_present: impPresent.length,
+          total_important_fields: impPresent.length + impMissing.length,
+          inconsistencies: raw.inconsistencies || [],
+        });
       } catch (err) {
         setError(err.message);
       } finally {
@@ -810,8 +830,37 @@ function EscalationPackageModal({ claimId, user, onClose }) {
           headers: { Authorization: `Bearer ${user.token}` },
         });
         if (!res.ok) throw new Error('Failed to generate escalation package');
-        const d = await res.json();
-        setData(d);
+        const raw = await res.json();
+        setData({
+          claim_id: raw.claim_id,
+          generated_at: new Date().toISOString(),
+          summary: raw.summary ? {
+            claim_id: raw.summary.claim_id,
+            policy_number: raw.summary.policy_number,
+            incident_type: raw.summary.incident_type,
+            claim_amount: raw.summary.total_claim_amount,
+            status: raw.summary.status,
+            incident_date: raw.summary.created_at,
+          } : null,
+          risk_assessment: {
+            overall_score: raw.summary?.overall_risk_score,
+            risk_level: raw.summary?.risk_level,
+            component_scores: {
+              claim_risk: raw.risk_factors?.claim_risk_score,
+              customer_risk: raw.risk_factors?.customer_risk_score,
+              pattern_risk: raw.risk_factors?.pattern_risk_score,
+            },
+            explanation: raw.risk_factors?.ai_explanation,
+          },
+          reasoning_trace: (raw.evidence?.decision_trace || []).map(s => typeof s === 'string' ? s : (s.detail || s.title || JSON.stringify(s))),
+          adjuster_notes: (raw.investigator_notes || []).map(n => ({
+            decision: n.action,
+            decided_at: n.at,
+            decided_by: n.by,
+            notes: n.notes,
+          })),
+          plain_text: raw.plain_text,
+        });
       } catch (err) {
         setError(err.message);
       } finally {
@@ -1021,8 +1070,51 @@ function ClaimDetail({ claimId, user, onBack }) {
     try {
       const res = await fetch(`${API}/claims/${claimId}`, { headers: { Authorization: `Bearer ${user.token}` } });
       if (!res.ok) throw new Error('Failed to fetch claim');
-      const data = await res.json();
-      setClaim(data);
+      const raw = await res.json();
+      const cd = raw.claim_data || {};
+      setClaim({
+        claim_id: raw.id,
+        policy_number: raw.policy_number,
+        status: raw.status,
+        source: raw.source,
+        incident_type: cd.incident_type,
+        claim_amount: cd.total_claim_amount,
+        incident_date: cd.incident_date || (raw.created_at ? raw.created_at.split('T')[0] : null),
+        report_date: cd.policy_bind_date,
+        customer_age: cd.age,
+        months_as_customer: cd.months_as_customer,
+        past_claims: cd.number_of_vehicles_involved,
+        vehicle_year: cd.auto_year,
+        vehicle_make: cd.auto_make,
+        police_report_filed: cd.police_report_available,
+        witness_present: cd.witnesses,
+        incident_severity: cd.incident_severity,
+        analysis: raw.overall_risk_score != null ? {
+          risk_score: raw.overall_risk_score,
+          risk_scores: {
+            claim_risk: raw.claim_risk_score,
+            customer_risk: raw.customer_risk_score,
+            policy_risk: raw.pattern_risk_score,
+          },
+          explanation: raw.ai_explanation,
+          reasoning_trace: (raw.decision_trace || []).map(s => typeof s === 'string' ? s : (s.detail || s.title || JSON.stringify(s))),
+          flags: raw.top_features || [],
+          document_insights: raw.document_insights,
+        } : null,
+        documents: (raw.documents || []).map(d => ({
+          ...d,
+          filename: d.filename,
+          summary: d.ai_summary,
+          flags: d.ai_flags || [],
+          upload_time: d.uploaded_at,
+        })),
+        decisions: (raw.decisions || []).map(d => ({
+          decision: d.action,
+          decided_by: d.investigator_name || d.display_name || d.user_id,
+          decided_at: d.decided_at,
+          notes: d.notes,
+        })),
+      });
     } catch (err) {
       toast.addToast({ type: 'error', title: 'Error', message: err.message });
     } finally {
@@ -1046,7 +1138,7 @@ function ClaimDetail({ claimId, user, onBack }) {
         setGenaiError(data.genai_error);
         toast.addToast({ type: 'warning', title: 'Partial Analysis', message: 'ML scoring complete but GenAI explanation unavailable.' });
       } else {
-        toast.addToast({ type: 'success', title: 'Analysis Complete', message: `Risk score: ${data.risk_score}` });
+        toast.addToast({ type: 'success', title: 'Analysis Complete', message: `Risk score: ${data.overall_risk}` });
       }
       await fetchClaim();
     } catch (err) {
@@ -1081,10 +1173,11 @@ function ClaimDetail({ claimId, user, onBack }) {
   const handleDecision = async (decision) => {
     setDeciding(true);
     try {
+      const actionMap = { escalated: 'escalate', approved: 'genuine', deferred: 'defer' };
       const res = await fetch(`${API}/claims/${claimId}/decide`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.token}` },
-        body: JSON.stringify({ decision, notes }),
+        body: JSON.stringify({ action: actionMap[decision] || decision, notes }),
       });
       if (!res.ok) throw new Error('Decision failed');
       toast.addToast({ type: 'success', title: 'Decision Recorded', message: `Claim marked as ${decision}.` });
