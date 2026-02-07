@@ -579,6 +579,241 @@ def decide_claim(claim_id: str, req: DecisionRequest,
 
 
 # ---------------------------------------------------------------------------
+# INTAKE QUALITY CHECK
+# ---------------------------------------------------------------------------
+
+@app.get("/api/claims/{claim_id}/intake-check")
+def intake_check(claim_id: str, current_user: dict = Depends(get_current_user)):
+    """Check if required fields are present before analysis."""
+    _ensure_db()
+    org_id = current_user["org_id"]
+    claim = db.get_claim(claim_id, org_id)
+    if not claim:
+        raise HTTPException(status_code=404, detail="Claim not found")
+
+    cd = claim.get("claim_data", {}) or {}
+
+    required_fields = {
+        "policy_number": "Policy Number",
+        "incident_type": "Incident Type",
+        "incident_severity": "Incident Severity",
+        "total_claim_amount": "Total Claim Amount",
+    }
+
+    important_fields = {
+        "bodily_injuries": "Bodily Injuries",
+        "witnesses": "Witnesses",
+        "police_report_available": "Police Report",
+        "property_damage": "Property Damage",
+        "authorities_contacted": "Authorities Contacted",
+        "number_of_vehicles_involved": "Vehicles Involved",
+    }
+
+    def _is_empty(val):
+        if val is None or val == '':
+            return True
+        if isinstance(val, str) and val.lower().strip() in ['unknown', 'n/a', 'none', '\u2014', '-', 'not available', 'not mentioned']:
+            return True
+        return False
+
+    missing_required = []
+    present_required = []
+    for key, label in required_fields.items():
+        val = cd.get(key) or claim.get(key)
+        if _is_empty(val):
+            missing_required.append({"field": key, "label": label})
+        else:
+            present_required.append({"field": key, "label": label, "value": val})
+
+    missing_important = []
+    present_important = []
+    for key, label in important_fields.items():
+        val = cd.get(key)
+        if _is_empty(val):
+            missing_important.append({"field": key, "label": label})
+        else:
+            present_important.append({"field": key, "label": label, "value": val})
+
+    inconsistencies = []
+    amount = cd.get("total_claim_amount")
+    if amount is not None:
+        try:
+            amt = float(str(amount).replace(',', '').replace('$', ''))
+            if amt <= 0:
+                inconsistencies.append("Claim amount is zero or negative")
+            if amt > 1000000:
+                inconsistencies.append("Unusually high claim amount (>$1M)")
+        except (ValueError, TypeError):
+            pass
+
+    docs = db.get_claim_documents(claim_id)
+    has_documents = len(docs) > 0
+    is_dataset = claim.get("source", "dataset") == "dataset"
+
+    if not is_dataset and not has_documents:
+        inconsistencies.append("No supporting documents attached")
+
+    if missing_required:
+        status = "INCOMPLETE"
+        message = f"Missing {len(missing_required)} required field(s). Claim cannot be analyzed until these are provided."
+    elif missing_important:
+        status = "NEEDS_MORE_INFO"
+        message = f"All required fields present. {len(missing_important)} optional field(s) missing \u2014 analysis may be less accurate."
+    else:
+        status = "READY"
+        message = "All fields present. Claim is ready for analysis."
+
+    if inconsistencies and status == "READY":
+        status = "NEEDS_MORE_INFO"
+        message = "All fields present but some inconsistencies detected. Review before analysis."
+
+    return {
+        "claim_id": claim_id,
+        "status": status,
+        "message": message,
+        "required": {"present": present_required, "missing": missing_required},
+        "important": {"present": present_important, "missing": missing_important},
+        "inconsistencies": inconsistencies,
+        "has_documents": has_documents,
+        "is_dataset_claim": is_dataset,
+    }
+
+
+# ---------------------------------------------------------------------------
+# ESCALATION PACKAGE
+# ---------------------------------------------------------------------------
+
+@app.get("/api/claims/{claim_id}/escalation-package")
+def escalation_package(claim_id: str, current_user: dict = Depends(get_current_user)):
+    """Generate a structured escalation package for SIU."""
+    _ensure_db()
+    org_id = current_user["org_id"]
+    claim = db.get_claim(claim_id, org_id)
+    if not claim:
+        raise HTTPException(status_code=404, detail="Claim not found")
+
+    cd = claim.get("claim_data", {}) or {}
+    decisions = db.get_claim_decisions(claim_id)
+    docs = db.get_claim_documents(claim_id)
+    ml_raw = claim.get("ml_raw", {}) or {}
+
+    summary = {
+        "claim_id": claim["id"],
+        "policy_number": claim["policy_number"],
+        "status": claim["status"],
+        "source": claim.get("source", "dataset"),
+        "risk_level": claim.get("risk_level", "Not assessed"),
+        "overall_risk_score": claim.get("overall_risk_score"),
+        "incident_type": cd.get("incident_type", "Not specified"),
+        "incident_severity": cd.get("incident_severity", "Not specified"),
+        "total_claim_amount": cd.get("total_claim_amount", "Not specified"),
+        "created_at": claim.get("created_at"),
+        "analyzed_at": claim.get("analyzed_at"),
+    }
+
+    risk_factors = {
+        "claim_risk_score": claim.get("claim_risk_score"),
+        "customer_risk_score": claim.get("customer_risk_score"),
+        "pattern_risk_score": claim.get("pattern_risk_score"),
+        "top_features": ml_raw.get("top_features", []),
+        "ai_explanation": claim.get("ai_explanation"),
+    }
+
+    evidence = {
+        "decision_trace": claim.get("decision_trace", []),
+        "document_insights": claim.get("document_insights", {}),
+        "documents": [
+            {
+                "filename": d.get("filename"),
+                "ai_summary": d.get("ai_summary"),
+                "ai_flags": d.get("ai_flags", []),
+            }
+            for d in docs
+        ],
+    }
+
+    notes = [
+        {
+            "action": d.get("action"),
+            "notes": d.get("notes"),
+            "by": d.get("investigator_name") or d.get("display_name") or d.get("user_id"),
+            "at": d.get("decided_at"),
+        }
+        for d in decisions
+    ]
+
+    lines = []
+    lines.append("=" * 60)
+    lines.append("AVIA — ESCALATION PACKAGE")
+    lines.append("=" * 60)
+    lines.append("")
+    lines.append("CLAIM SUMMARY")
+    lines.append("-" * 40)
+    lines.append(f"Claim ID:        {summary['claim_id']}")
+    lines.append(f"Policy Number:   {summary['policy_number']}")
+    lines.append(f"Status:          {summary['status']}")
+    lines.append(f"Risk Level:      {summary['risk_level']}")
+    lines.append(f"Risk Score:      {summary.get('overall_risk_score', 'N/A')}")
+    lines.append(f"Incident Type:   {summary['incident_type']}")
+    lines.append(f"Severity:        {summary['incident_severity']}")
+    lines.append(f"Claim Amount:    {summary['total_claim_amount']}")
+    lines.append(f"Created:         {summary.get('created_at', 'N/A')}")
+    lines.append(f"Analyzed:        {summary.get('analyzed_at', 'N/A')}")
+    lines.append("")
+    lines.append("KEY RISK FACTORS")
+    lines.append("-" * 40)
+    lines.append(f"Claim Risk:      {risk_factors.get('claim_risk_score', 'N/A')}")
+    lines.append(f"Customer Risk:   {risk_factors.get('customer_risk_score', 'N/A')}")
+    lines.append(f"Pattern Risk:    {risk_factors.get('pattern_risk_score', 'N/A')}")
+    if risk_factors.get("top_features"):
+        lines.append(f"Indicators:      {', '.join(risk_factors['top_features'])}")
+    if risk_factors.get("ai_explanation"):
+        lines.append(f"")
+        lines.append(f"AI Assessment:")
+        lines.append(risk_factors["ai_explanation"])
+    lines.append("")
+    lines.append("EXTRACTED EVIDENCE")
+    lines.append("-" * 40)
+    for i, step in enumerate(evidence.get("decision_trace", []), 1):
+        text = step if isinstance(step, str) else step.get("detail", step.get("title", str(step)))
+        lines.append(f"  {i}. {text}")
+    if evidence.get("documents"):
+        lines.append(f"")
+        lines.append(f"Documents ({len(evidence['documents'])}):")
+        for doc in evidence["documents"]:
+            lines.append(f"  - {doc['filename']}")
+            if doc.get("ai_summary"):
+                lines.append(f"    Summary: {doc['ai_summary']}")
+            for flag in doc.get("ai_flags", []):
+                lines.append(f"    Flag: {flag}")
+    lines.append("")
+    lines.append("INVESTIGATOR NOTES")
+    lines.append("-" * 40)
+    if notes:
+        for n in notes:
+            lines.append(f"  [{(n.get('action') or '').upper()}] by {n.get('by', 'Unknown')} at {n.get('at', 'Unknown')}")
+            if n.get("notes"):
+                lines.append(f"    {n['notes']}")
+    else:
+        lines.append("  No investigator notes recorded.")
+    lines.append("")
+    lines.append("=" * 60)
+    lines.append(f"Generated: {datetime.utcnow().isoformat()}Z")
+    lines.append("Avia - Fraud Investigation Platform")
+
+    plain_text = "\n".join(lines)
+
+    return {
+        "claim_id": claim_id,
+        "summary": summary,
+        "risk_factors": risk_factors,
+        "evidence": evidence,
+        "investigator_notes": notes,
+        "plain_text": plain_text,
+    }
+
+
+# ---------------------------------------------------------------------------
 # HEALTH
 # ---------------------------------------------------------------------------
 
