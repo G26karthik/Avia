@@ -6,11 +6,16 @@ Uses trained XGBoost + Isolation Forest models when available, falls back to heu
 
 import os
 import json
-import numpy as np
 import warnings
 from typing import Dict, List, Tuple, Optional
 
 warnings.filterwarnings("ignore")
+
+try:
+    import numpy as np
+    _HAS_NUMPY = True
+except ImportError:
+    _HAS_NUMPY = False
 
 # Resolve model directory relative to project root
 _THIS_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -33,6 +38,9 @@ def _load_models():
     global _xgb_model, _iso_model, _scaler, _label_encoders, _metadata, _shap_explainer, _loaded
     if _loaded:
         return True
+    if not _HAS_NUMPY:
+        print("ML models unavailable: numpy not installed (using heuristics)")
+        return False
     try:
         import joblib
         _xgb_model = joblib.load(os.path.join(MODEL_DIR, "xgb_model.pkl"))

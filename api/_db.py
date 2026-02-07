@@ -191,19 +191,21 @@ def _seed_all_org_claims(conn):
     if not os.path.exists(CSV_PATH):
         return
 
-    import pandas as pd
+    import csv as _csv
     import random
     import math
 
-    df = pd.read_csv(CSV_PATH)
+    with open(CSV_PATH, newline="", encoding="utf-8") as f:
+        reader = _csv.DictReader(f)
+        all_rows = list(reader)
 
     for org in DEMO_ORGS:
         start, end = org["claim_slice"]
-        org_df = df.iloc[start:end]
+        org_rows = all_rows[start:end]
         claim_ids = []
 
-        for _, row in org_df.iterrows():
-            claim_data = row.to_dict()
+        for row in org_rows:
+            claim_data = dict(row)
             policy_num = str(claim_data.get("policy_number", f"POL-{start}"))
             claim_id = f"CLM-{uuid.uuid4().hex[:8].upper()}"
             conn.execute(

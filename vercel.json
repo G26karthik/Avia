@@ -1,7 +1,7 @@
 {
   "functions": {
     "api/index.py": {
-      "includeFiles": "{models/**,insurance_fraud.csv}",
+      "includeFiles": "insurance_fraud.csv",
       "maxDuration": 60
     }
   },
