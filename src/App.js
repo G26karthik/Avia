@@ -42,8 +42,6 @@ const displayValue = (v, fallback = null) => {
   return String(v);
 };
 
-const hasValue = (v) => displayValue(v) !== null;
-
 const sourceBadge = (s) =>
   s === 'uploaded'
     ? <span className="source-badge source-uploaded">Uploaded</span>
