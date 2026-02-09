@@ -37,7 +37,12 @@ const statusBadge = (st) => {
 
 const formatCurrency = (v) => v != null ? `$${Number(v).toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '—';
 
-const displayValue = (v, fallback = '—') => (v != null && v !== '' && v !== 'unknown') ? String(v) : fallback;
+const displayValue = (v, fallback = null) => {
+  if (v == null || v === '' || v === 'unknown' || v === 'N/A' || v === 'n/a') return fallback;
+  return String(v);
+};
+
+const hasValue = (v) => displayValue(v) !== null;
 
 const sourceBadge = (s) =>
   s === 'uploaded'
@@ -126,7 +131,7 @@ function LandingPage({ onNavigate }) {
             <span className="landing-eyebrow">AI-Powered Insurance Intelligence</span>
             <h1 className="landing-title">Detect Fraud Before It Costs You</h1>
             <p className="landing-subtitle">
-              Avia combines advanced ML risk scoring, document OCR analysis, and GenAI
+              Avia combines advanced ML risk scoring, multimodal AI document understanding, and GenAI
               reasoning to help claims teams investigate fraud faster and with greater confidence.
             </p>
             <div className="landing-cta-row">
@@ -198,8 +203,8 @@ function LandingPage({ onNavigate }) {
             },
             {
               icon: (<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#0d6e6e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>),
-              title: 'Document OCR',
-              desc: 'Extract & cross-reference data from uploaded documents automatically',
+              title: 'Document AI',
+              desc: 'Multimodal AI extracts & cross-references data from uploaded documents',
               active: true,
             },
             {
@@ -293,7 +298,7 @@ function LandingPage({ onNavigate }) {
             <div>
               <div className="footer-col-title">Platform</div>
               <span className="footer-link">Risk Scoring</span>
-              <span className="footer-link">Document OCR</span>
+              <span className="footer-link">Document AI</span>
               <span className="footer-link">GenAI Analysis</span>
               <span className="footer-link">Escalation Packages</span>
             </div>
@@ -652,9 +657,17 @@ function UploadClaimScreen({ user, onDone }) {
         headers: { Authorization: `Bearer ${user.token}` },
         body: form,
       });
-      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.detail || 'Upload failed'); }
+      if (!res.ok) { 
+        const d = await res.json().catch(() => ({})); 
+        const msg = d.detail || 'Upload failed';
+        // Use user-friendly message for extraction failures
+        const userMsg = msg.includes('Unable to understand') 
+          ? 'Unable to understand document content. Please upload a clearer document.'
+          : msg;
+        throw new Error(userMsg); 
+      }
       const data = await res.json();
-      toast.addToast({ type: 'success', title: 'Uploaded', message: `Claim ${data.claim_id} created successfully.` });
+      toast.addToast({ type: 'success', title: 'Extraction Complete', message: `Claim details extracted using Multimodal AI. Claim ${data.claim_id} created.` });
       onDone(data.claim_id);
     } catch (err) {
       toast.addToast({ type: 'error', title: 'Upload Error', message: err.message });
@@ -667,7 +680,7 @@ function UploadClaimScreen({ user, onDone }) {
     <div className="upload-claim-screen">
       <button className="btn-back" onClick={() => onDone(null)}>← Back to Dashboard</button>
       <h2>Upload New Claim</h2>
-      <p className="upload-subtitle">Upload PDF or image documents. Avia will extract claim data via OCR and create a new claim record for analysis.</p>
+      <p className="upload-subtitle">Upload PDF or image documents. Avia will extract claim data using Multimodal AI and create a new claim record for analysis.</p>
 
       <div
         className={`upload-drop-zone${files.length ? ' has-files' : ''}`}
@@ -706,7 +719,7 @@ function UploadClaimScreen({ user, onDone }) {
       {uploading && (
         <div className="upload-progress">
           <div className="spinner" />
-          Processing documents with OCR…
+          Extracting details with Multimodal AI…
         </div>
       )}
 
@@ -1072,23 +1085,51 @@ function ClaimDetail({ claimId, user, onBack }) {
       if (!res.ok) throw new Error('Failed to fetch claim');
       const raw = await res.json();
       const cd = raw.claim_data || {};
+      
+      // Derive tenure_months if policy_start_date and incident_date exist
+      let derivedTenure = cd.customer_tenure_months || cd.months_as_customer;
+      if (!derivedTenure && cd.policy_start_date && cd.incident_date) {
+        const start = new Date(cd.policy_start_date);
+        const end = new Date(cd.incident_date);
+        if (!isNaN(start) && !isNaN(end)) {
+          derivedTenure = Math.floor((end - start) / (1000 * 60 * 60 * 24 * 30));
+        }
+      }
+      
+      // Build vehicle string only if we have data
+      const vehicleStr = [cd.vehicle_year || cd.auto_year, cd.vehicle_make || cd.auto_make, cd.vehicle_model || cd.auto_model]
+        .filter(v => v != null && v !== '')
+        .join(' ') || null;
+      
       setClaim({
         claim_id: raw.id,
         policy_number: raw.policy_number,
         status: raw.status,
         source: raw.source,
+        // Required fields
         incident_type: cd.incident_type,
         claim_amount: cd.total_claim_amount,
         incident_date: cd.incident_date || (raw.created_at ? raw.created_at.split('T')[0] : null),
-        report_date: cd.policy_bind_date,
-        customer_age: cd.age,
-        months_as_customer: cd.months_as_customer,
-        past_claims: cd.number_of_vehicles_involved,
-        vehicle_year: cd.auto_year,
-        vehicle_make: cd.auto_make,
-        police_report_filed: cd.police_report_available,
-        witness_present: cd.witnesses,
         incident_severity: cd.incident_severity,
+        // Derivable fields
+        tenure_months: derivedTenure,
+        customer_age: cd.age, // Only show if DOB exists (age is pre-calculated from DOB)
+        // Optional fields (only stored if explicitly present)
+        report_date: cd.policy_start_date,
+        collision_type: cd.collision_type,
+        incident_city: cd.incident_city,
+        incident_state: cd.incident_state,
+        vehicles_involved: cd.number_of_vehicles_involved,
+        bodily_injuries: cd.bodily_injuries,
+        vehicle: vehicleStr,
+        police_report_filed: cd.police_report_available,
+        witness_count: cd.witnesses,
+        authorities_contacted: cd.authorities_contacted,
+        property_damage: cd.property_damage,
+        // Claim breakdown (optional)
+        injury_claim: cd.injury_claim,
+        property_claim: cd.property_claim,
+        vehicle_claim: cd.vehicle_claim,
         analysis: raw.overall_risk_score != null ? {
           risk_score: raw.overall_risk_score,
           risk_scores: {
@@ -1251,15 +1292,32 @@ function ClaimDetail({ claimId, user, onBack }) {
         <div>
           <IntakeQualityCheck claimId={claimId} user={user} />
           <div className="info-grid">
-            <InfoCard label="Claim Amount" value={formatCurrency(claim.claim_amount)} />
+            {/* Required fields - always show if present */}
+            <InfoCard label="Claim Amount" value={claim.claim_amount != null ? formatCurrency(claim.claim_amount) : null} />
             <InfoCard label="Incident Date" value={displayValue(claim.incident_date)} />
-            <InfoCard label="Report Date" value={displayValue(claim.report_date)} />
-            <InfoCard label="Age" value={displayValue(claim.customer_age)} />
-            <InfoCard label="Tenure (months)" value={displayValue(claim.months_as_customer)} />
-            <InfoCard label="Past Claims" value={displayValue(claim.past_claims)} />
-            <InfoCard label="Vehicle" value={`${displayValue(claim.vehicle_year)} ${displayValue(claim.vehicle_make)}`} />
+            <InfoCard label="Incident Type" value={displayValue(claim.incident_type)} />
+            <InfoCard label="Severity" value={displayValue(claim.incident_severity)} />
+            
+            {/* Derivable fields - show computed value or "Not available" */}
+            <InfoCard label="Tenure (months)" value={claim.tenure_months != null ? claim.tenure_months : (claim.source === 'uploaded' ? 'Not available' : null)} show={claim.tenure_months != null || claim.source === 'uploaded'} />
+            <InfoCard label="Age" value={displayValue(claim.customer_age)} show={claim.customer_age != null} />
+            
+            {/* Optional fields - only show if explicitly present */}
+            <InfoCard label="Policy Start Date" value={displayValue(claim.report_date)} />
+            <InfoCard label="Collision Type" value={displayValue(claim.collision_type)} />
+            <InfoCard label="Location" value={claim.incident_city && claim.incident_state ? `${claim.incident_city}, ${claim.incident_state}` : displayValue(claim.incident_city) || displayValue(claim.incident_state)} />
+            <InfoCard label="Vehicles Involved" value={displayValue(claim.vehicles_involved)} />
+            <InfoCard label="Bodily Injuries" value={displayValue(claim.bodily_injuries)} />
+            <InfoCard label="Vehicle" value={displayValue(claim.vehicle)} />
             <InfoCard label="Police Report" value={displayValue(claim.police_report_filed)} />
-            <InfoCard label="Witness" value={displayValue(claim.witness_present)} />
+            <InfoCard label="Witnesses" value={claim.witness_count != null ? String(claim.witness_count) : null} />
+            <InfoCard label="Authority Contacted" value={displayValue(claim.authorities_contacted)} />
+            <InfoCard label="Property Damage" value={displayValue(claim.property_damage)} />
+            
+            {/* Claim breakdown - only show if present */}
+            <InfoCard label="Injury Claim" value={claim.injury_claim != null ? formatCurrency(claim.injury_claim) : null} />
+            <InfoCard label="Property Claim" value={claim.property_claim != null ? formatCurrency(claim.property_claim) : null} />
+            <InfoCard label="Vehicle Claim" value={claim.vehicle_claim != null ? formatCurrency(claim.vehicle_claim) : null} />
           </div>
           {!hasAnalysis && (
             <div className="analyze-prompt">
@@ -1383,7 +1441,7 @@ function ClaimDetail({ claimId, user, onBack }) {
         <div>
           {claim.source === 'uploaded' && (
             <div className="source-info-banner">
-              <strong>Source:</strong> This claim was created from uploaded documents via OCR extraction.
+              <strong>Source:</strong> Claim details extracted using Multimodal AI document understanding.
             </div>
           )}
           <div className="upload-section">
@@ -1464,10 +1522,12 @@ function ClaimDetail({ claimId, user, onBack }) {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   INFO CARD
+   INFO CARD (only renders if value is present)
    ═══════════════════════════════════════════════════════════ */
 
-function InfoCard({ label, value }) {
+function InfoCard({ label, value, show = true }) {
+  // Don't render card if value is null/undefined/empty or show is false
+  if (!show || value == null || value === '' || value === '—' || value === 'null null') return null;
   return (
     <div className="info-card">
       <div className="info-label">{label}</div>

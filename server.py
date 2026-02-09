@@ -31,7 +31,7 @@ import db
 import ml_engine
 import genai_adapter
 from genai_adapter import GenAIUnavailableError
-# ocr_engine is no longer used â€” multimodal GenAI is the primary extraction method
+# ocr_engine is no longer used - multimodal GenAI is the primary extraction method
 
 warnings.filterwarnings("ignore")
 
@@ -306,7 +306,7 @@ async def upload_and_create_claim(
             raise HTTPException(status_code=400, detail=f"File '{safe_filename}' is empty")
         file_contents.append((safe_filename, content, ext))
 
-    # --- Multimodal GenAI extraction (PRIMARY â€” no OCR) ---
+    # --- Multimodal GenAI extraction (PRIMARY) ---
     first_name, first_content, first_ext = file_contents[0]
     mime_type = _EXT_TO_MIME.get(first_ext, "application/octet-stream")
 
@@ -325,18 +325,29 @@ async def upload_and_create_claim(
     if missing_fields:
         raise HTTPException(
             status_code=422,
-            detail="Unable to extract required claim details from the document."
+            detail="Unable to understand document content. Please upload a clearer document."
         )
 
-    # Build claim_data â€” only use values actually extracted (no defaults)
+    # Build claim_data - only use values actually extracted (no defaults)
     claim_data = {}
     field_map = [
-        "policy_number", "incident_type", "incident_severity", "total_claim_amount",
-        "incident_date", "policy_start_date", "customer_tenure_months",
-        "bodily_injuries", "witnesses", "police_report_available",
-        "property_damage", "authorities_contacted", "number_of_vehicles_involved",
-        "policy_state", "vehicle_make", "vehicle_model", "vehicle_year",
-        "vehicle_registration",
+        # Policy Information
+        "policy_number", "policy_state", "policy_start_date",
+        "policy_deductible", "policy_annual_premium",
+        # Incident Details
+        "incident_date", "incident_type", "incident_severity", "collision_type",
+        "incident_state", "incident_city", "incident_location", "incident_hour_of_the_day",
+        # Claim Amounts
+        "total_claim_amount", "injury_claim", "property_claim", "vehicle_claim",
+        # People & Evidence
+        "customer_tenure_months", "bodily_injuries", "witnesses",
+        "police_report_available", "property_damage", "authorities_contacted",
+        "number_of_vehicles_involved",
+        # Vehicle Information
+        "vehicle_make", "vehicle_model", "vehicle_year", "vehicle_registration",
+        "insured_vehicle_owner",
+        # Other
+        "claimant_name", "claimant_contact",
     ]
     for key in field_map:
         val = extracted.get(key)

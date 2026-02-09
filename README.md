@@ -13,7 +13,7 @@ Avia is a production-grade SaaS application that triages insurance claims, score
 ### Core Capabilities
 
 - **Three-Bucket ML Risk Scoring** — Claim Risk, Customer Risk, and Pattern Risk scored independently (0–100), weighted into an overall fraud probability score
-- **Multimodal Document Extraction** — Upload PDFs or images; Gemini 2.5 Flash reads documents directly (no OCR dependency) and extracts structured claim fields
+- **Multimodal Document Extraction** — Upload PDFs or images; Gemini 2.5 Flash reads documents directly using multimodal AI and extracts structured claim fields
 - **GenAI Decision Traces** — Step-by-step reasoning narratives generated in plain English explaining why each claim was flagged
 - **GenAI Investigator Explanations** — Concise, jargon-free summaries written as if briefing a senior investigator
 - **Document Insights** — Per-document AI analysis identifying inconsistencies, key values, and risk flags
@@ -223,7 +223,7 @@ avia/
 ├── db.py                     # SQLite database layer (multi-tenant, sessions, 601 lines)
 ├── ml_engine.py              # ML scoring engine (XGBoost + SHAP, 340 lines)
 ├── genai_adapter.py          # Gemini 2.5 Flash adapter (multimodal, 368 lines)
-├── ocr_engine.py             # OCR fallback (Tesseract/PyPDF2, legacy)
+├── ocr_engine.py             # Legacy file (unused - multimodal AI is primary)
 ├── train.py                  # ML training pipeline (187 lines)
 ├── test_api.py               # API integration tests (129 lines)
 ├── start.ps1                 # One-command startup script (PowerShell)

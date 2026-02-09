@@ -30,7 +30,7 @@ Write-Host "         Avia - Starting Up                    " -ForegroundColor Cy
 Write-Host "     Fraud Investigation Platform              " -ForegroundColor Cyan
 Write-Host "  =============================================" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "  GenAI:    Gemini 2.0 Flash (google.genai)" -ForegroundColor Green
+Write-Host "  GenAI:    Gemini 2.5 Flash (google.genai)" -ForegroundColor Green
 Write-Host "  Backend:  http://localhost:8000" -ForegroundColor Yellow
 Write-Host "  Frontend: http://localhost:3000" -ForegroundColor Yellow
 Write-Host "  Login:    jsmith / avia2026" -ForegroundColor Gray
